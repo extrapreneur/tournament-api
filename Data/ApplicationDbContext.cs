@@ -7,6 +7,8 @@ namespace MyBackend.Data
     {
         public ApplicationDbContext(DbContextOptions<ApplicationDbContext> options) : base(options) { }
 
-        public DbSet<Member> Members { get; set; }
+        public DbSet<Player> Players { get; set; }
+
+        public DbSet<Match> Matches { get; set; }
     }
 }

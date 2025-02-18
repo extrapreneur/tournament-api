@@ -1,8 +1,20 @@
+using System.ComponentModel.DataAnnotations;
+
 namespace MyBackend.Models
 {
     public class Match
     {
-        public Member Player1 { get; set; }
-        public Member Player2 { get; set; }
+        [Key]
+        public int Id { get; set; }
+
+        public Player Player1 { get; set; }
+
+        public Player Player2 { get; set; }
+
+        public int Round { get; set; }
+
+        public Player Winner { get; set; }
+
+        public bool Decided { get; set; }
     }
 }

@@ -2,7 +2,7 @@ using System.ComponentModel.DataAnnotations;
 
 namespace MyBackend.Models
 {
-    public class Member
+    public class Player
     {
         [Key]
         public int Id { get; set; }

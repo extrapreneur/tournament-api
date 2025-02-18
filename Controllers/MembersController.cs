@@ -9,11 +9,11 @@ namespace MyApp.Namespace
 {
     [ApiController]
     [Route("api/[controller]")]
-    public class MembersController : ControllerBase
+    public class PlayersController : ControllerBase
     {
         private readonly ApplicationDbContext _context;
 
-        public MembersController(ApplicationDbContext context)
+        public PlayersController(ApplicationDbContext context)
         {
             _context = context;
         }
@@ -26,43 +26,43 @@ namespace MyApp.Namespace
 
         private static readonly Random random = new Random();
 
-        // GET: api/members
+        // GET: api/players
         [HttpGet]
-        public async Task<IActionResult> GetMembers()
+        public async Task<IActionResult> GetPlayers()
         {
-            var members = await _context.Members.ToListAsync();
-            return Ok(members);
+            var players = await _context.Players.ToListAsync();
+            return Ok(players);
         }
 
-        // // GET: api/members/1
+        // // GET: api/players/1
         // [HttpGet("{id}")]
-        // public IActionResult GetMemberById(int id)
+        // public IActionResult GetPlayerById(int id)
         // {
-        //     Member member = Members.FirstOrDefault(m => m.Id == id);
-        //     if (member == null)
-        //         return NotFound("Member not found");
+        //     Player player = Players.FirstOrDefault(m => m.Id == id);
+        //     if (player == null)
+        //         return NotFound("Player not found");
 
-        //     return Ok(Members[id]);
+        //     return Ok(Players[id]);
         // }
 
-        // POST: api/members
+        // POST: api/players
         [HttpPost]
-        public async Task<IActionResult> AddMember([FromBody] Member member)
+        public async Task<IActionResult> AddPlayer([FromBody] Player player)
         {
-            _context.Members.Add(member);
+            _context.Players.Add(player);
             await _context.SaveChangesAsync();
-            return CreatedAtAction(nameof(GetMembers), new { id = member.Id }, member);
+            return CreatedAtAction(nameof(GetPlayers), new { id = player.Id }, player);
         }
 
-        // // DELETE: api/members/1
+        // // DELETE: api/players/1
         // [HttpDelete("{id}")]
-        // public IActionResult DeleteMember(int id)
+        // public IActionResult DeletePlayer(int id)
         // {
-        //     Member member = Members.FirstOrDefault(m => m.Id == id);
-        //     if (member == null)
-        //         return NotFound("Member not found");
+        //     Player player = Players.FirstOrDefault(m => m.Id == id);
+        //     if (player == null)
+        //         return NotFound("Player not found");
 
-        //     Members.RemoveAt(id);
+        //     Players.RemoveAt(id);
         //     return NoContent();
         // }
 
