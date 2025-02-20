@@ -7,13 +7,13 @@ namespace MyBackend.Models
         [Key]
         public int Id { get; set; }
 
-        public Player Player1 { get; set; }
+        public int PlayerId1 { get; set; }
 
-        public Player Player2 { get; set; }
+        public int? PlayerId2 { get; set; }
 
-        public int Round { get; set; }
+        public int? Round { get; set; }
 
-        public Player Winner { get; set; }
+        public int? WinnerId { get; set; }
 
         public bool Decided { get; set; }
     }

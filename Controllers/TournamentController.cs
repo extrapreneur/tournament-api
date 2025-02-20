@@ -33,54 +33,84 @@ namespace MyApp.Namespace
         {
             var players = await _context.Players.ToListAsync();
 
-            var randomizedPlayers = players.OrderBy(m => random.Next()).ToList();
-            var matches = CreateTournamentTree(randomizedPlayers);
+            var randomizedPlayerIds = players.Select(player => player.Id).OrderBy(m => random.Next()).ToList();
+            var matches = CreateTournamentTree(randomizedPlayerIds);
+            await SaveMatchesToDatabase(matches);
             return Ok(matches);
         }
 
-        private List<Match> CreateTournamentTree(List<Player> players)
+        private List<Match> CreateTournamentTree(List<int> playerIds)
         {
-            if (players.Count == 0)
+            if (playerIds.Count == 0 || playerIds == null)
             {
                 return new List<Match>();
             }
 
-            if (players.Count == 1)
+            if (playerIds.Count == 1)
             {
-                return new List<Match> { new Match { Player1 = players[0], Player2 = null } };
+                return new List<Match> {
+                    new Match {
+                        PlayerId1 = playerIds[0],
+                        PlayerId2 = null,
+                    }
+                };
             }
 
             var matches = new List<Match>();
-            for (int i = 0; i < players.Count; i += 2)
+
+            for (int i = 0; i < playerIds.Count; i += 2)
             {
-                if (i + 1 < players.Count)
+                if (i + 1 < playerIds.Count)
                 {
-                    matches.Add(new Match { Player1 = players[i], Player2 = players[i + 1] });
+                    matches.Add(
+                        new Match
+                        {
+                            PlayerId1 = playerIds[i],
+                            PlayerId2 = playerIds[i + 1],
+                        });
                 }
                 else
                 {
-                    matches.Add(new Match { Player1 = players[i], Player2 = null });
+                    matches.Add(
+                        new Match
+                        {
+                            PlayerId1 = playerIds[i],
+                            PlayerId2 = null,
+                        });
                 }
             }
 
-            var nextRoundPlayers = matches.SelectMany(m => new[] { m.Player1, m.Player2 }).Where(m => m != null).ToList();
-            if (nextRoundPlayers.Count == players.Count)
+            var nextRoundPlayers = matches
+                .SelectMany(m => new[] { m.PlayerId1, m.PlayerId2 })
+                .Where(id => id.HasValue)
+                .Select(id => id.Value)
+                .ToList();
+
+            if (nextRoundPlayers.Count == playerIds.Count)
             {
                 // If the next round players count is the same as the current players count, break the recursion
                 return matches;
+            }
+
+            if (nextRoundPlayers.Count == 0)
+            {
+                nextRoundPlayers = new List<int>();
             }
 
             matches.AddRange(CreateTournamentTree(nextRoundPlayers));
             return matches;
         }
 
+        private async Task SaveMatchesToDatabase(List<Match> matches)
+        {
+            _context.Matches.AddRange(matches);
+            await _context.SaveChangesAsync();
+        }
+
         public async Task<IActionResult> GetMatchesInCurrentRound([FromBody] Player player)
         {
-            var matches = await _context.Matches.Where(m => m.Player1 == player || m.Player2 == player).ToListAsync();
+            var matches = await _context.Matches.Where(m => m.PlayerId1 == player.Id || m.PlayerId2 == player.Id).ToListAsync();
             return Ok(matches);
         }
     }
-
-
-
 }

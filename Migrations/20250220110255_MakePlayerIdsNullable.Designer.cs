@@ -2,6 +2,7 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using MyBackend.Data;
 
@@ -10,9 +11,11 @@ using MyBackend.Data;
 namespace TournamentApi.Migrations
 {
     [DbContext(typeof(ApplicationDbContext))]
-    partial class ApplicationDbContextModelSnapshot : ModelSnapshot
+    [Migration("20250220110255_MakePlayerIdsNullable")]
+    partial class MakePlayerIdsNullable
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -38,7 +41,7 @@ namespace TournamentApi.Migrations
                     b.Property<int?>("PlayerId2")
                         .HasColumnType("int");
 
-                    b.Property<int?>("Round")
+                    b.Property<int>("Round")
                         .HasColumnType("int");
 
                     b.Property<int?>("WinnerId")

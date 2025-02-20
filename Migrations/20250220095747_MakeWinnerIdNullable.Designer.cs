@@ -2,6 +2,7 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using MyBackend.Data;
 
@@ -10,9 +11,11 @@ using MyBackend.Data;
 namespace TournamentApi.Migrations
 {
     [DbContext(typeof(ApplicationDbContext))]
-    partial class ApplicationDbContextModelSnapshot : ModelSnapshot
+    [Migration("20250220095747_MakeWinnerIdNullable")]
+    partial class MakeWinnerIdNullable
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -32,19 +35,23 @@ namespace TournamentApi.Migrations
                     b.Property<bool>("Decided")
                         .HasColumnType("bit");
 
-                    b.Property<int>("PlayerId1")
+                    b.Property<int>("Player1Id")
                         .HasColumnType("int");
 
-                    b.Property<int?>("PlayerId2")
+                    b.Property<int>("Player2Id")
                         .HasColumnType("int");
 
-                    b.Property<int?>("Round")
+                    b.Property<int>("Round")
                         .HasColumnType("int");
 
                     b.Property<int?>("WinnerId")
                         .HasColumnType("int");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("Player1Id");
+
+                    b.HasIndex("Player2Id");
 
                     b.ToTable("Matches");
                 });
@@ -68,6 +75,25 @@ namespace TournamentApi.Migrations
                     b.HasKey("Id");
 
                     b.ToTable("Players");
+                });
+
+            modelBuilder.Entity("MyBackend.Models.Match", b =>
+                {
+                    b.HasOne("MyBackend.Models.Player", "Player1")
+                        .WithMany()
+                        .HasForeignKey("Player1Id")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("MyBackend.Models.Player", "Player2")
+                        .WithMany()
+                        .HasForeignKey("Player2Id")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Player1");
+
+                    b.Navigation("Player2");
                 });
 #pragma warning restore 612, 618
         }
