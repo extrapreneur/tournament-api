@@ -2,6 +2,7 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using MyBackend.Data;
 
@@ -10,9 +11,11 @@ using MyBackend.Data;
 namespace TournamentApi.Migrations
 {
     [DbContext(typeof(ApplicationDbContext))]
-    partial class ApplicationDbContextModelSnapshot : ModelSnapshot
+    [Migration("20250224105322_RenameForeignKey")]
+    partial class RenameForeignKey
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -32,10 +35,10 @@ namespace TournamentApi.Migrations
                     b.Property<bool>("Decided")
                         .HasColumnType("bit");
 
-                    b.Property<int?>("NextMatchId")
+                    b.Property<int>("NextMatchId")
                         .HasColumnType("int");
 
-                    b.Property<int?>("Player1Id")
+                    b.Property<int>("Player1Id")
                         .HasColumnType("int");
 
                     b.Property<int?>("Player2Id")
@@ -79,7 +82,9 @@ namespace TournamentApi.Migrations
                 {
                     b.HasOne("MyBackend.Models.Match", "NextMatch")
                         .WithMany()
-                        .HasForeignKey("NextMatchId");
+                        .HasForeignKey("NextMatchId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
 
                     b.Navigation("NextMatch");
                 });

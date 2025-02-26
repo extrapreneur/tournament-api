@@ -7,6 +7,7 @@ using MyBackend.Models;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
+using Microsoft.Extensions.Logging;
 
 namespace MyApp.Namespace
 {
@@ -15,6 +16,7 @@ namespace MyApp.Namespace
     public class TournamentController : ControllerBase
     {
         private readonly ApplicationDbContext _context;
+        private readonly ILogger<TournamentController> _logger;
         private static readonly Random random = new Random();
 
         public TournamentController(ApplicationDbContext context)
@@ -28,89 +30,120 @@ namespace MyApp.Namespace
             return Ok();
         }
 
-        [HttpGet]
+        [HttpPost("set-tournament-order")]
+        public async Task<IActionResult> SetTournamentOrder()
+        {
+            try
+            {
+                var players = await _context.Players.ToListAsync();
+                if (players == null || players.Count == 0)
+                {
+                    return BadRequest("No players found.");
+                }
+
+                var randomizedPlayerIds = players.Select(player => player.Id).OrderBy(m => random.Next()).ToList();
+
+                await CreateTournamentTree(randomizedPlayerIds);
+
+                return Ok("Tournament order set successfully.");
+            }
+            catch (Exception ex)
+            {
+                // Logga undantaget
+                Console.WriteLine($"Error in SetTournamentOrder: {ex.Message}");
+                Console.WriteLine(ex.StackTrace);
+
+                // Returnera ett internt serverfel
+                return StatusCode(StatusCodes.Status500InternalServerError, "An error occurred while setting the tournament order.");
+            }
+        }
+
+        [HttpGet("tournament-order")]
         public async Task<IActionResult> GetTournamentOrder()
         {
-            var players = await _context.Players.ToListAsync();
-
-            var randomizedPlayerIds = players.Select(player => player.Id).OrderBy(m => random.Next()).ToList();
-            var matches = CreateTournamentTree(randomizedPlayerIds);
-            await SaveMatchesToDatabase(matches);
+            var matches = await _context.Matches.ToListAsync();
             return Ok(matches);
         }
 
-        private List<Match> CreateTournamentTree(List<int> playerIds)
+        [HttpGet("current-round/{round}")]
+        public async Task<IActionResult> GetMatchesInCurrentRound([FromBody] int round)
         {
-            if (playerIds.Count == 0 || playerIds == null)
+            var matches = await _context.Matches.Where(m => m.Round == round).ToListAsync();
+            return Ok(matches);
+        }
+
+        private async Task CreateTournamentTree(List<int> playerIds)
+        {
+            if (playerIds == null || playerIds.Count == 0)
             {
-                return new List<Match>();
+                return;
             }
 
-            if (playerIds.Count == 1)
+            // Kontrollera att alla playerIds finns i Players-tabellen
+            var validPlayerIds = await _context.Players
+                .Where(p => playerIds.Contains(p.Id))
+                .Select(p => p.Id)
+                .ToListAsync();
+
+            if (validPlayerIds.Count != playerIds.Count)
             {
-                return new List<Match> {
-                    new Match {
-                        PlayerId1 = playerIds[0],
-                        PlayerId2 = null,
-                    }
-                };
+                throw new InvalidOperationException("One or more player IDs are invalid.");
             }
 
             var matches = new List<Match>();
+            var rounds = (int)Math.Ceiling(Math.Log2(playerIds.Count));
+
+            while (playerIds.Count % 2 != 0)  // Om ojämnt antal, ge en bye
+            {
+                var byePlayer = playerIds[0];
+                playerIds.RemoveAt(0);
+
+                var byeMatch = new Match
+                {
+                    Player1Id = byePlayer,
+                    Player2Id = null,
+                    WinnerId = byePlayer,
+                    Round = 1,
+                    Decided = true
+                };
+
+                matches.Add(byeMatch);
+            }
+
+            var firstRoundMatches = new List<Match>();
 
             for (int i = 0; i < playerIds.Count; i += 2)
             {
-                if (i + 1 < playerIds.Count)
+                firstRoundMatches.Add(new Match
                 {
-                    matches.Add(
-                        new Match
-                        {
-                            PlayerId1 = playerIds[i],
-                            PlayerId2 = playerIds[i + 1],
-                        });
-                }
-                else
+                    Player1Id = playerIds[i],
+                    Player2Id = playerIds[i + 1],
+                    Round = 1
+                });
+            }
+
+            matches.AddRange(firstRoundMatches);
+
+            var previousRoundMatches = firstRoundMatches;
+
+            for (int round = 2; round <= rounds; round++)
+            {
+                var nextRoundMatches = new List<Match>();
+                for (int i = 0; i < previousRoundMatches.Count; i += 2)
                 {
-                    matches.Add(
-                        new Match
-                        {
-                            PlayerId1 = playerIds[i],
-                            PlayerId2 = null,
-                        });
+                    var nextMatch = new Match { Round = round };
+                    matches.Add(nextMatch);
+                    nextRoundMatches.Add(nextMatch);
+
+                    previousRoundMatches[i].NextMatch = nextMatch;
+                    if (i + 1 < previousRoundMatches.Count)
+                        previousRoundMatches[i + 1].NextMatch = nextMatch;
                 }
+                previousRoundMatches = nextRoundMatches;
             }
 
-            var nextRoundPlayers = matches
-                .SelectMany(m => new[] { m.PlayerId1, m.PlayerId2 })
-                .Where(id => id.HasValue)
-                .Select(id => id.Value)
-                .ToList();
-
-            if (nextRoundPlayers.Count == playerIds.Count)
-            {
-                // If the next round players count is the same as the current players count, break the recursion
-                return matches;
-            }
-
-            if (nextRoundPlayers.Count == 0)
-            {
-                nextRoundPlayers = new List<int>();
-            }
-
-            matches.AddRange(CreateTournamentTree(nextRoundPlayers));
-            return matches;
-        }
-
-        private async Task SaveMatchesToDatabase(List<Match> matches)
-        {
             _context.Matches.AddRange(matches);
             await _context.SaveChangesAsync();
-        }
-
-        public async Task<IActionResult> GetMatchesInCurrentRound([FromBody] Player player)
-        {
-            var matches = await _context.Matches.Where(m => m.PlayerId1 == player.Id || m.PlayerId2 == player.Id).ToListAsync();
-            return Ok(matches);
         }
     }
 }
