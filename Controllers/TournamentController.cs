@@ -33,6 +33,10 @@ namespace MyApp.Namespace
         [HttpPost("set-tournament-order")]
         public async Task<IActionResult> SetTournamentOrder()
         {
+            if (await CheckIfThereAreMatches())
+            {
+                return BadRequest("Tournament order already set.");
+            }
             try
             {
                 var players = await _context.Players.ToListAsync();
@@ -144,6 +148,23 @@ namespace MyApp.Namespace
 
             _context.Matches.AddRange(matches);
             await _context.SaveChangesAsync();
+        }
+
+        private async Task<Match> GetMatch(int id)
+        {
+            var match = await _context.Matches.FindAsync(id);
+
+            if (match == null)
+            {
+                return null;
+            }
+
+            return match;
+        }
+
+        private async Task<bool> CheckIfThereAreMatches()
+        {
+            return await _context.Matches.AnyAsync();
         }
     }
 }
