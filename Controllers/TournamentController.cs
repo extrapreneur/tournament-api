@@ -66,11 +66,11 @@ namespace MyApp.Namespace
         public async Task<IActionResult> GetTournamentOrder()
         {
             var matches = await _context.Matches.ToListAsync();
-            return Ok(matches);
+            return Ok(matches.OrderBy(m => m.Round).ToList());
         }
 
         [HttpGet("current-round/{round}")]
-        public async Task<IActionResult> GetMatchesInCurrentRound([FromBody] int round)
+        public async Task<IActionResult> GetMatchesInCurrentRound([FromRoute] int round)
         {
             var matches = await _context.Matches.Where(m => m.Round == round).ToListAsync();
             return Ok(matches);

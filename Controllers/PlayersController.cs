@@ -34,16 +34,18 @@ namespace MyApp.Namespace
             return Ok(players);
         }
 
-        // // GET: api/players/1
-        // [HttpGet("{id}")]
-        // public IActionResult GetPlayerById(int id)
-        // {
-        //     Player player = Players.FirstOrDefault(m => m.Id == id);
-        //     if (player == null)
-        //         return NotFound("Player not found");
+        // GET: api/players/1
+        [HttpGet("{id}")]
+        public async Task<IActionResult> GetPlayerById(int id)
+        {
+            Player player = await _context.Players.FirstOrDefaultAsync(player => player.Id == id);
+            if (player == null)
+            {
+                return NotFound("Player not found");
+            }
 
-        //     return Ok(Players[id]);
-        // }
+            return Ok(player);
+        }
 
         // POST: api/players
         [HttpPost]
