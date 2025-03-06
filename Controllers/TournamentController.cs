@@ -76,6 +76,24 @@ namespace MyApp.Namespace
             return Ok(matches);
         }
 
+        [HttpPut("update-winner/{matchId}")]
+        public async Task<IActionResult> UpdateWinner([FromRoute] int matchId, [FromBody] UpdateWinnerRequest request)
+        {
+            try
+            {
+                await SaveUpdatedWinner(matchId, request.WinnerId);
+                return Ok(new { message = "Winner updated successfully." });
+            }
+            catch (InvalidOperationException ex)
+            {
+                return NotFound(new { message = ex.Message });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(StatusCodes.Status500InternalServerError, new { message = "An error occurred while updating the winner." });
+            }
+        }
+
         private async Task CreateTournamentTree(List<int> playerIds)
         {
             if (playerIds == null || playerIds.Count == 0)
@@ -96,6 +114,7 @@ namespace MyApp.Namespace
 
             var matches = new List<Match>();
             var rounds = (int)Math.Ceiling(Math.Log2(playerIds.Count));
+            var firstRoundMatches = new List<Match>();
 
             while (playerIds.Count % 2 != 0)  // Om ojämnt antal, ge en bye
             {
@@ -112,9 +131,8 @@ namespace MyApp.Namespace
                 };
 
                 matches.Add(byeMatch);
+                firstRoundMatches.Add(byeMatch);
             }
-
-            var firstRoundMatches = new List<Match>();
 
             for (int i = 0; i < playerIds.Count; i += 2)
             {
@@ -143,6 +161,28 @@ namespace MyApp.Namespace
                     if (i + 1 < previousRoundMatches.Count)
                         previousRoundMatches[i + 1].NextMatch = nextMatch;
                 }
+
+                // Lägg till vinnarna av byeMatches till nästa runda
+                foreach (var match in previousRoundMatches)
+                {
+                    if (match.Player2Id == null && match.WinnerId.HasValue)
+                    {
+                        var nextMatch = nextRoundMatches.FirstOrDefault(m => m.Player1Id == null || m.Player2Id == null);
+                        if (nextMatch != null)
+                        {
+                            if (nextMatch.Player1Id == null)
+                            {
+                                nextMatch.Player1Id = match.WinnerId;
+                            }
+                            else if (nextMatch.Player2Id == null)
+                            {
+                                nextMatch.Player2Id = match.WinnerId;
+                            }
+                            match.NextMatch = nextMatch; // Sätt NextMatch för byeMatch
+                        }
+                    }
+                }
+
                 previousRoundMatches = nextRoundMatches;
             }
 
@@ -150,13 +190,16 @@ namespace MyApp.Namespace
             await _context.SaveChangesAsync();
         }
 
-        private async Task<Match> GetMatch(int id)
+        [HttpGet("match/{id}")]
+        public async Task<Match> GetMatch(int id)
         {
-            var match = await _context.Matches.FindAsync(id);
+            var match = await _context.Matches
+                .Include(match => match.NextMatch)
+                .FirstOrDefaultAsync(match => match.Id == id);
 
             if (match == null)
             {
-                return null;
+                throw new InvalidOperationException("Match not found.");
             }
 
             return match;
@@ -166,5 +209,109 @@ namespace MyApp.Namespace
         {
             return await _context.Matches.AnyAsync();
         }
+
+        private async Task SaveUpdatedWinner(int matchId, int winnerId)
+        {
+            var match = await GetMatch(matchId);
+
+            if (match == null)
+            {
+                throw new InvalidOperationException("Match not found.");
+            }
+
+            var winner = await _context.Players.FindAsync(winnerId);
+            var loser = await _context.Players.FindAsync(match.Player1Id == winnerId ? match.Player2Id : match.Player1Id);
+
+            match.WinnerId = winnerId;
+            match.Decided = true;
+
+            await SetWinnerAsPlayerInNextMatch(match, winnerId, loser.Id);
+            await RemoveLoserInTree(match, loser.Id);
+            
+            _context.Matches.Update(match);
+
+
+            await _context.SaveChangesAsync();
+        }
+
+        private async Task SetWinnerAsPlayerInNextMatch(Match match, int winnerId, int loserId)
+        {
+            var nextMatch = match.NextMatch;
+            if (nextMatch == null)
+            {
+                return;
+            }
+
+            var currentPlayers = new HashSet<int?> { winnerId, loserId };
+            var nextPlayers = new HashSet<int?> { nextMatch.Player1Id, nextMatch.Player2Id };
+
+            var commonPlayers = currentPlayers.Intersect(nextPlayers).ToList();
+
+            if (commonPlayers.Any())
+            {
+                var commonPlayer = commonPlayers.First();
+                if (commonPlayer != winnerId)
+                {
+                    if (nextMatch.Player1Id == commonPlayer)
+                    {
+                        nextMatch.Player1Id = winnerId;
+                    }
+                    else if (nextMatch.Player2Id == commonPlayer)
+                    {
+                        nextMatch.Player2Id = winnerId;
+                    }
+                }
+            }
+            else
+            {
+                if (nextMatch.Player1Id == null)
+                {
+                    nextMatch.Player1Id = winnerId;
+                }
+                else if (nextMatch.Player2Id == null)
+                {
+                    nextMatch.Player2Id = winnerId;
+                }
+            }
+
+            _context.Matches.Update(nextMatch);
+            await _context.SaveChangesAsync();
+        }
+
+        private async Task RemoveLoserInTree(Match match, int loserId)
+        {
+            if (match == null)
+            {
+                return;
+            }
+
+            var nextMatch = match.NextMatch;
+
+            while (nextMatch != null)
+            {
+                if (nextMatch.Player1Id == loserId)
+                {
+                    nextMatch.Player1Id = null;
+                    nextMatch.Decided = false;
+                    nextMatch.WinnerId = null;
+                }
+                else if (nextMatch.Player2Id == loserId)
+                {
+                    nextMatch.Player2Id = null;
+                    nextMatch.Decided = false;
+                    nextMatch.WinnerId = null;
+                }
+
+                _context.Matches.Update(nextMatch);
+                await _context.SaveChangesAsync();
+
+                nextMatch = nextMatch.NextMatch;
+                // nextMatch = await _context.Matches
+                //             .Include(m => m.NextMatch)
+                //             .FirstOrDefaultAsync(m => m.Id == nextMatch.NextMatch.Id);
+            }
+        }
+
     }
+
 }

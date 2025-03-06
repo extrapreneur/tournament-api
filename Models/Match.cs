@@ -17,6 +17,8 @@ namespace MyBackend.Models
 
         public bool Decided { get; set; }
 
+        public bool Locked { get; set; }
+
         public Match? NextMatch { get; set; }
     }
 }
