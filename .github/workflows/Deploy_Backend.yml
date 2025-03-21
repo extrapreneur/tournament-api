@@ -1,0 +1,78 @@
+name: Build and deploy app to an Azure Web App
+
+env:
+  DOTNET_VERSION: 9.0.x
+  OUTPUT_PATH: ${{github.workspace}}/Api/.output
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up .NET Core
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: ${{ env.DOTNET_VERSION }}
+
+      - name: Set up dependency caching for faster builds
+        uses: actions/cache@v4
+        with:
+          path: ~/.nuget/packages
+          key: ${{ runner.os }}-nuget-${{ hashFiles('**/packages.lock.json') }}
+          restore-keys: |
+            ${{ runner.os }}-nuget-
+
+      - name: Build with dotnet
+        run: dotnet build --configuration Release
+
+      - name: dotnet publish
+        run: dotnet publish -c Release -o ${{env.OUTPUT_PATH}}
+
+      - name: Upload artifact for deployment job
+        uses: actions/upload-artifact@v4
+        with:
+          name: .net-app
+          path: ${{env.OUTPUT_PATH}}/*
+          include-hidden-files: true
+          retention-days: 1
+
+  deploy:
+    runs-on: ubuntu-latest
+    needs: build
+    env:
+      APP_NAME: appService-mytestproject105-dev
+
+    steps:
+      - name: Download artifact from build job
+        uses: actions/download-artifact@v4
+        with:
+          name: .net-app
+      
+      - name: Login to Azure
+        uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+    
+      - name: Get Publishing Profiles
+        id: publishing_profiles
+        uses: azure/CLI@v1
+        with:
+          inlineScript: |
+            PUBLISHING_PROFILES=$(az webapp deployment list-publishing-profiles -n ${{ secrets.APPSERVICE_NAME }} -g ${{ secrets.RESOURCEGROUP_NAME }})
+            echo "::add-mask::$PUBLISHING_PROFILES"
+            echo PUBLISHING_PROFILES=$PUBLISHING_PROFILES >> $GITHUB_ENV
+
+      - name: Deploy to Azure Web App
+        id: deploy-to-webapp
+        uses: azure/webapps-deploy@v3
+        with:
+          app-name: ${{ env.APP_NAME}}
+          publish-profile: ${{ steps.publishing_profiles.outputs.SWA_DEPLOYMENT_TOKEN }}
+          package: ${{ env.OUTPUT_PATH }}
