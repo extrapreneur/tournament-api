@@ -6,6 +6,10 @@ env:
 
 on:
   workflow_dispatch:
+    inputs:
+      environment:
+        type: environment
+        description: Select the environment
 
 jobs:
   build:
@@ -43,6 +47,7 @@ jobs:
 
   deploy:
     runs-on: ubuntu-latest
+    environment: ${{ inputs.environment }}
     needs: build
     env:
       APP_NAME: appService-mytestproject105-dev
