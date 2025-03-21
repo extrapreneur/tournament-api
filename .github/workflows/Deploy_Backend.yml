@@ -2,6 +2,7 @@ name: Build and deploy app to an Azure Web App
 
 env:
   DOTNET_VERSION: 9.0.x
+  AZURE_WEBAPP_PACKAGE_PATH: '.'
   OUTPUT_PATH: ${{github.workspace}}/Api/.output
 
 on:
@@ -62,7 +63,7 @@ jobs:
           name: .net-app
       
       - name: Login to Azure
-        uses: azure/login@v2
+        uses: azure/login@v1
         with:
           client-id: ${{ secrets.AZURE_CLIENT_ID }}
           tenant-id: ${{ secrets.AZURE_TENANT_ID }}
@@ -83,4 +84,4 @@ jobs:
         with:
           app-name: ${{ env.APP_NAME}}
           publish-profile: ${{ steps.publishing_profiles.outputs.SWA_DEPLOYMENT_TOKEN }}
-          package: ${{ env.OUTPUT_PATH }}
+          package: ${{ env.AZURE_WEBAPP_PACKAGE_PATH }}
